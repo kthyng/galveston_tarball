@@ -22,6 +22,8 @@ grid_filename = '/atch/raid1/zhangxq/Projects/txla_nesting6/txla_grd_v4_new.nc'
 vert_filename = '/atch/raid1/zhangxq/Projects/txla_nesting6/ocean_his_0001.nc'
 grid = tracpy.inout.readgrid(grid_filename, vert_filename=vert_filename, usebasemap=True)
 
+currents_filename = list(np.sort(glob.glob('/atch/raid1/zhangxq/Projects/txla_nesting6/2010/ocean_his_????.nc')))
+
 def init(name, date):
     '''
     Initialization for the simulation.
@@ -64,7 +66,7 @@ def init(name, date):
     dostream = 1
 
     # Initialize Tracpy class
-    tp = Tracpy(loc, name=name, tseas=tseas, ndays=ndays, nsteps=nsteps, dostream=dostream, savell=False, doperiodic=0, 
+    tp = Tracpy(currents_filename, grid_filename=grid_filename, name=name, tseas=tseas, ndays=ndays, nsteps=nsteps, dostream=dostream, savell=False, doperiodic=0, 
                 N=N, ff=ff, ah=ah, av=av, doturb=doturb, do3d=do3d, z0=z0, zpar=zpar, 
                 time_units=time_units, usebasemap=True, grid=grid)
 
@@ -90,7 +92,7 @@ def init(name, date):
         del(xg,yg) # don't need grid info anymore
         # save indices of drifters that start in the coastal areas
         inds = gpath.contains_points(np.vstack((xp[:,0].flat, yp[:,0].flat)).T).reshape(xp[:,0].shape)
-        np.savez(startingindsfile, inds=inds)
+        np.savez(startindsfile, inds=inds)
     else:
         inds = np.load(startindsfile)['inds']
 
@@ -107,8 +109,12 @@ def init(name, date):
         lon0 = d['lon0']; lat0 = d['lat0']
         d.close()
 
+    # Want 10 drifters starting from each location
+    lon0 = lon0.repeat(10)
+    lat0 = lat0.repeat(10)
+
     # equal weightings for drifters for transport.
-    T0 = np.ones(lon0.size, order='F')
+    T0 = np.ones(len(lon0), order='F')
 
     U = np.ma.zeros(tp.grid['xu'].shape, order='F')
     V = np.ma.zeros(tp.grid['xv'].shape, order='F')
