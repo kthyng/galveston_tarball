@@ -116,6 +116,7 @@ for i, File in enumerate(Files):
         cb.ax.tick_params(labelsize=10)
 
     fig.savefig('figures/transport/' + datestr + '-log.png', bbox_inches='tight')
+    plt.close()
 
 np.savez(fname, S=S, x=grid['xpsi'], y=grid['ypsi'])
 
@@ -142,7 +143,9 @@ ax.plot(xp, yp, 'k', alpha=0.5, lw=2)
 
 # Plot DWH site
 xdwh, ydwh = grid['basemap'](-88.386944, 28.736667)
-ax.plot(xdwh, ydwh, 'ok', ms=15)
+ax.plot(xdwh, ydwh, '^k', ms=15)
+ax.plot(486538, 221471, '^k', ms=15)
+ax.text(0.475, 0.2175, 'Deepwater Horizontal site', transform=ax.transAxes)
 
 # Horizontal colorbar below plot
 if i == (len(Files)-1):
