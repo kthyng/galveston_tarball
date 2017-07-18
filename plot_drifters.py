@@ -55,7 +55,8 @@ for File in Files:
         os.mkdir('figures/' + startdate)
 
     for i, date in enumerate(dates[::5]):
-        figname = 'figures/' + startdate + '/'  + str(i).zfill(3) + '.png'
+        figname = 'figures/' + startdate + '/'  + date.strftime('%Y-%m-%dT%H') + '.png'
+        # figname = 'figures/' + startdate + '/'  + str(i).zfill(3) + '.png'
         # bfigname = 'backward-' + str(len(dates[::5])-i).zfill(3) + '.png'  # to show backwards
         # figname = 'figures/' + startdate + '/' + date.isoformat()
         if os.path.exists(figname):
@@ -71,7 +72,7 @@ for File in Files:
         ax.set_extent([-98, -88, 26, 30.15], crs.PlateCarree())
         ax.add_feature(land_10m, facecolor='0.8')
         ax.plot(dwh[0], dwh[1], 'k^', ms=10, transform=crs.PlateCarree(), label='Deepwater Horizon site')
-        ax.plot(lonp[:,i].T, latp[:,i].T, 'k.', lw=0.3, alpha=0.7, transform=crs.PlateCarree());
+        ax.plot(lonp[:,i*5].T, latp[:,i*5].T, 'k.', lw=0.3, alpha=0.7, transform=crs.PlateCarree());
         ax.text(-97.7, 29.3, date.strftime('%B %d, %Y %H:%M'), transform=crs.PlateCarree(), fontsize=16)
         ax.legend(loc=2, numpoints=1, frameon=False)
         fig.savefig(figname, bbox_inches='tight')
