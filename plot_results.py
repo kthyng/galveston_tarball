@@ -15,15 +15,19 @@ import netCDF4 as netCDF
 from datetime import datetime, timedelta
 from pyproj import Proj
 from scipy import ndimage
+import matplotlib as mpl
+import cmocean.cm as cmo
 
 
-land_10m = cfeature.NaturalEarthFeature('physical', 'land', '10m',
-                                        edgecolor='face')
+land_10m = cfeature.NaturalEarthFeature('physical', 'land', '10m', edgecolor='face')
 dwh = [-88.386944, 28.736667]
 
 pc = ccrs.PlateCarree()
 merc = ccrs.Mercator(central_longitude=-85.0)
 utm = ccrs.UTM(zone=15)
+
+cmap = cmo.thermal
+
 
 # oilnames = ['Light_TB', 'Light', 'Moderate', 'Mod_TB', 'Neg_TB', 'Very_Light', 'Heavy_TB', 'Heavy']
 # removed tarball names since those are all older
@@ -34,9 +38,13 @@ oilprops = {'Very_Light': {'color': '0.8', 'zorder': 5, 'ms': 18},
             'Moderate': {'color': '0.4', 'zorder': 7, 'ms': 14},
             'Heavy': {'color': '0.2', 'zorder': 8, 'ms': 12}}
 
+lastdate = datetime(2010, 7, 14, 0, 0)  # last date possible in sims
+firstdate = datetime(2010, 6, 29, 0, 0)  # last date possible in sims
+
 # loop through dates and plot one per day to start
-dates = [datetime(2010, 5, 2, 0, 0) + timedelta(seconds=86400*i) for i in range(72)]
-Files = glob('data/erma/layer_*/2010*')
+dates = [datetime(2010, 6, 27, 0, 0)]
+# dates = [datetime(2010, 5, 2, 0, 0) + timedelta(seconds=86400*i) for i in range(72)]
+Files = glob('data/erma/layer_*/2010????_??')
 for i in range(len(Files)):
     try:
         if '.zip' in Files[i]:
@@ -44,7 +52,7 @@ for i in range(len(Files)):
     except:  # will run out of indices to use
         pass
 for date in dates:
-
+    print(date)
     # Set up figure and map of area
     fig = plt.figure(figsize=(12,6))
     ax = plt.axes(projection=merc)
@@ -60,26 +68,26 @@ for date in dates:
 
     # read in coastal data
     fnamecoast = 'data/erma/layer_19872/18611/SCAT_Max_OilZones_Louisiana_2014_09_30Sorted.shp'
-    coast = cfeature.ShapelyFeature(shpreader.Reader(fnamecoast).geometries(), utm, facecolor='none')
+    # coast = cfeature.ShapelyFeature(shpreader.Reader(fnamecoast).geometries(), utm, facecolor='none')
 
-    ## plot coastal oiling
-    reader = shpreader.Reader(fnamecoast)
-    records = reader.records()
-    oiled = []
-    for record in records:
-        rdate = record.attributes['max_date']
-        oilcode = record.attributes['OilCatCode']
-        west, south, east, north = record.bounds  # bounding box in UTM coords
-        lonplot, latplot = pc.transform_points(utm, np.array([[west]]), np.array([[north]]))[0][0][0:2]
-        if oilcode in oilprops.keys() and rdate[:8] == date.strftime('%Y%m%d'):
-            # print(oilcode, rdate)
-            color = oilprops[oilcode]['color']
-            zorder = oilprops[oilcode]['zorder']
-            ms = oilprops[oilcode]['ms']
-            coast = cfeature.ShapelyFeature(record.geometry, utm, facecolor='none')
-            ax.plot(lonplot, latplot, marker='o', ms=ms, mfc='none', mec=color, mew=3.5, zorder=zorder, transform=pc)
-            # # this looks poorly plotted since it's a small area. Instead plot a marker.
-            # ax.add_feature(coast, facecolor=color, edgecolor=color, linewidth=15, zorder=15)
+    # ## plot coastal oiling
+    # reader = shpreader.Reader(fnamecoast)
+    # records = reader.records()
+    # oiled = []
+    # for record in records:
+    #     rdate = record.attributes['max_date']
+    #     oilcode = record.attributes['OilCatCode']
+    #     west, south, east, north = record.bounds  # bounding box in UTM coords
+    #     lonplot, latplot = pc.transform_points(utm, np.array([[west]]), np.array([[north]]))[0][0][0:2]
+    #     if oilcode in oilprops.keys() and rdate[:8] == date.strftime('%Y%m%d'):
+    #         # print(oilcode, rdate)
+    #         color = oilprops[oilcode]['color']
+    #         zorder = oilprops[oilcode]['zorder']
+    #         ms = oilprops[oilcode]['ms']
+    #         coast = cfeature.ShapelyFeature(record.geometry, utm, facecolor='none')
+    #         ax.plot(lonplot, latplot, marker='o', ms=ms, mfc='none', mec=color, mew=3.5, zorder=zorder, transform=pc)
+    #         # # this looks poorly plotted since it's a small area. Instead plot a marker.
+    #         # ax.add_feature(coast, facecolor=color, edgecolor=color, linewidth=15, zorder=15)
 
 
     ## read in model output from date
@@ -90,8 +98,11 @@ for date in dates:
     proj = Proj(**inputs)
     grid = netCDF.Dataset('../grid.nc')
     dFiles = glob('tracks/*.nc')
+    # save over loops to plot afterward
+    lonpsave = []; latpsave = []
+    timecolors = []; dtimes = []
     for File in dFiles:
-
+        print(File)
         d = netCDF.Dataset(File)
         xg = d['xg'][:]; yg = d['yg'][:]
         tp = d['tp'][0,:]
@@ -110,12 +121,59 @@ for date in dates:
                                      order=1, mode='nearest',
                                      cval=0.).reshape(yg[:,idate].shape)
         if lonp.size > 1:
+            print('using drifters')
             ind = np.isnan(xg[:,idate])
             lonp[ind] = np.nan
             latp[ind] = np.nan
 
+            lonpsave.append(lonp)
+            latpsave.append(latp)
+
+
+
         # lonp, latp, _ = tracpy.tools.interpolate2d(xg[:,idate], yg[:,idate], grid, 'm_ij2ll')
-        ax.plot(lonp, latp, 'o', color='darkcyan', alpha=0.3, transform=pc, mec=None, mew=0, ms=6, zorder=9);
+        # ax.plot(lonp, latp, 'o', color='darkcyan', alpha=0.3, transform=pc, mec=None, mew=0, ms=6, zorder=9);
+
+            # time for a drifter is between idate and tracks earliest time (2010/4/20)
+            dtimes.append((drifterdates[0] - date).days)
+            # fractional colors for each circle in order
+            # fracs = dtimes/(vmax-vmin)
+            # cmap.N = 1
+            # timecolors = cmap(norm(dtime))
+
+        # # Add on vulnerability of coastline
+        # # Need to plot the coast boxes as patches and color them according to vulnerability level
+        # # http://matplotlib.org/1.2.1/examples/pylab_examples/hist_colormapped.html
+        # # we need to normalize the data to 0..1 for the full
+        # # range of the colormap
+        # fracs = ndbox[i,j,:].astype(float)/ndbox[:,j,:].max() # max across years
+        # norm = colors.Normalize(fracs.min(), fracs.max())
+        #
+        # # Save patches together
+        # patches = []
+        # for path in pathsxy:
+        #     patches.append(Patches.PathPatch(path, facecolor='orange', lw=0, edgecolor=None, zorder=5))
+        #
+        # # assign shades of colormap to the patches according to values, and plot
+        # for thisfrac, thispatch in zip(fracs, patches):
+        #     color = cmo.matter(norm(thisfrac))
+        #     thispatch.set_facecolor(color)
+        #     ax.add_patch(thispatch)
+
+    vmin = (firstdate-date).days
+    vmax = (lastdate-date).days
+    # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+    mappable = ax.scatter(np.asarray(lonpsave), np.asarray(latpsave), s=50,
+                          c=np.asarray(dtimes)[:,np.newaxis], alpha=0.3,
+                          cmap=cmap, transform=pc, zorder=9, vmin=vmin, vmax=vmax);#,
+                          # norm=norm);#, mec=None, mew=0, ms=6);
+
+    # colorbar
+    cax = fig.add_axes([0.7, 0.05, 0.32, 0.018]) #colorbar axes
+    cb = fig.colorbar(mappable, cax=cax, orientation='horizontal')
+    cb.set_label('Days to reach Galveston from date', fontsize=13, color='0.2')
+    # cb.ax.tick_params(labelsize=12, length=2, color='0.2', labelcolor='0.2')
+    # cb.set_ticks(ticks)
 
     ##
 
